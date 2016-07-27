@@ -22,8 +22,7 @@ package org.sonar.java.se;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-
-import org.sonar.java.collections.AVLTree;
+import org.sonar.java.collections.PCollections;
 import org.sonar.java.collections.PMap;
 import org.sonar.java.se.constraint.BooleanConstraint;
 import org.sonar.java.se.constraint.Constraint;
@@ -36,13 +35,11 @@ import org.sonar.plugins.java.api.tree.VariableTree;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -67,27 +64,23 @@ public class ProgramState {
 
   private final int constraintSize;
   public static final ProgramState EMPTY_STATE = new ProgramState(
-    AVLTree.<Symbol, SymbolicValue>create(),
-    AVLTree.<SymbolicValue, Integer>create(),
-    AVLTree.<SymbolicValue, Constraint>create()
+    PCollections.emptyMap(),
+    PCollections.<SymbolicValue, Constraint>emptyMap()
       .put(SymbolicValue.NULL_LITERAL, ObjectConstraint.nullConstraint())
       .put(SymbolicValue.TRUE_LITERAL, BooleanConstraint.TRUE)
       .put(SymbolicValue.FALSE_LITERAL, BooleanConstraint.FALSE),
-    AVLTree.<ExplodedGraph.ProgramPoint, Integer>create(),
-    Lists.<SymbolicValue>newLinkedList());
+    PCollections.emptyMap(),
+    Lists.newLinkedList());
 
   private final PMap<ExplodedGraph.ProgramPoint, Integer> visitedPoints;
 
   private final Deque<SymbolicValue> stack;
   private final PMap<Symbol, SymbolicValue> values;
-  private final PMap<SymbolicValue, Integer> references;
   private final PMap<SymbolicValue, Constraint> constraints;
 
-  private ProgramState(PMap<Symbol, SymbolicValue> values, PMap<SymbolicValue, Integer> references,
-    PMap<SymbolicValue, Constraint> constraints, PMap<ExplodedGraph.ProgramPoint, Integer> visitedPoints,
-    Deque<SymbolicValue> stack) {
+  private ProgramState(PMap<Symbol, SymbolicValue> values, PMap<SymbolicValue, Constraint> constraints,
+                       PMap<ExplodedGraph.ProgramPoint, Integer> visitedPoints, Deque<SymbolicValue> stack) {
     this.values = values;
-    this.references = references;
     this.constraints = constraints;
     this.visitedPoints = visitedPoints;
     this.stack = stack;
@@ -96,7 +89,6 @@ public class ProgramState {
 
   private ProgramState(ProgramState ps, Deque<SymbolicValue> newStack) {
     values = ps.values;
-    references = ps.references;
     constraints = ps.constraints;
     constraintSize = ps.constraintSize;
     visitedPoints = ps.visitedPoints;
@@ -105,7 +97,6 @@ public class ProgramState {
 
   private ProgramState(ProgramState ps, PMap<SymbolicValue, Constraint> newConstraints) {
     values = ps.values;
-    references = ps.references;
     constraints = newConstraints;
     constraintSize = ps.constraintSize + 1;
     visitedPoints = ps.visitedPoints;
@@ -192,13 +183,8 @@ public class ProgramState {
     }
     SymbolicValue oldValue = values.get(symbol);
     if (oldValue == null || oldValue != value) {
-      PMap<SymbolicValue, Integer> newReferences = references;
-      if (oldValue != null) {
-        newReferences = decreaseReference(newReferences, oldValue);
-      }
-      newReferences = increaseReference(newReferences, value);
       PMap<Symbol, SymbolicValue> newValues = values.put(symbol, value);
-      return new ProgramState(newValues, newReferences, constraints, visitedPoints, stack);
+      return new ProgramState(newValues, constraints, visitedPoints, stack);
     }
     return this;
   }
@@ -207,78 +193,36 @@ public class ProgramState {
     return isField(symbol) && symbol.isVolatile();
   }
 
-  private static PMap<SymbolicValue, Integer> decreaseReference(PMap<SymbolicValue, Integer> givenReferences, SymbolicValue sv) {
-    Integer value = givenReferences.get(sv);
-    Preconditions.checkNotNull(value);
-    return givenReferences.put(sv, value - 1);
-  }
-
-  private static PMap<SymbolicValue, Integer> increaseReference(PMap<SymbolicValue, Integer> givenReferences, SymbolicValue sv) {
-    Integer value = givenReferences.get(sv);
-    if (value == null) {
-      return givenReferences.put(sv, 1);
-    } else {
-      return givenReferences.put(sv, value + 1);
-    }
-  }
-
   private static boolean isDisposable(SymbolicValue symbolicValue, @Nullable Object constraint) {
     return SymbolicValue.isDisposable(symbolicValue) && (constraint == null || !(constraint instanceof ObjectConstraint) || ((ObjectConstraint) constraint).isDisposable());
-  }
-
-  private static boolean inStack(Deque<SymbolicValue> stack, SymbolicValue symbolicValue) {
-    for (SymbolicValue value : stack) {
-      if (value.equals(symbolicValue) || value.references(symbolicValue)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private static boolean isLocalVariable(Symbol symbol) {
     return symbol.isVariableSymbol() && symbol.owner().isMethodSymbol();
   }
 
-  public ProgramState cleanupDeadSymbols(Set<Symbol> liveVariables) {
-    PMap<Symbol, SymbolicValue> newValues = values;
-    PMap<SymbolicValue, Integer> newReferences = references;
-    PMap<SymbolicValue, Constraint> newConstraints = constraints;
-    boolean newProgramState = false;
-    for (Iterator<Map.Entry<Symbol, SymbolicValue>> iter = newValues.entriesIterator(); iter.hasNext();) {
-      Map.Entry<Symbol, SymbolicValue> next = iter.next();
-      Symbol symbol = next.getKey();
+  public ProgramState purge(Set<Symbol> liveVariables) {
+    final PMap<Symbol, SymbolicValue>[] newValues = new PMap[]{values};
+    final PMap<SymbolicValue, Constraint>[] newConstraints = new PMap[]{constraints};
+    final Set<SymbolicValue> tmpReferences = new HashSet<>();
+    newValues[0].forEach((symbol, symbolicValue) -> {
       if (isLocalVariable(symbol) && !liveVariables.contains(symbol)) {
-        if (!newProgramState) {
-          newProgramState = true;
-        }
-        SymbolicValue symbolicValue = next.getValue();
-        newValues = newValues.remove(symbol);
-        newReferences = decreaseReference(newReferences, symbolicValue);
-        if (!isReachable(symbolicValue, newReferences) && isDisposable(symbolicValue, newConstraints.get(symbolicValue)) && !inStack(stack, symbolicValue)) {
-          newConstraints = newConstraints.remove(symbolicValue);
-          newReferences = newReferences.remove(symbolicValue);
-        }
+        newValues[0] = newValues[0].remove(symbol);
+      } else {
+        tmpReferences.add(symbolicValue);
+        tmpReferences.addAll(symbolicValue.referenced());
       }
-    }
-    return newProgramState ? new ProgramState(newValues, newReferences, newConstraints, visitedPoints, stack) : this;
-  }
-
-  public ProgramState cleanupConstraints() {
-    PMap<SymbolicValue, Constraint> newConstraints = constraints;
-    PMap<SymbolicValue, Integer> newReferences = references;
-    boolean newProgramState = false;
-    for (Iterator<Map.Entry<SymbolicValue, Constraint>> iter = newConstraints.entriesIterator(); iter.hasNext();) {
-      Map.Entry<SymbolicValue, Constraint> next = iter.next();
-      SymbolicValue symbolicValue = next.getKey();
-      if (!isReachable(symbolicValue, newReferences) && isDisposable(symbolicValue, next.getValue()) && !inStack(stack, symbolicValue)) {
-        if (!newProgramState) {
-          newProgramState = true;
-        }
-        newConstraints = newConstraints.remove(symbolicValue);
-        newReferences = newReferences.remove(symbolicValue);
+    });
+    stack.forEach(symbolicValue -> {
+      tmpReferences.add(symbolicValue);
+      tmpReferences.addAll(symbolicValue.referenced());
+    });
+    newConstraints[0].forEach((symbolicValue, constraint) -> {
+      if (!tmpReferences.contains(symbolicValue) && isDisposable(symbolicValue, constraint)) {
+        newConstraints[0] = newConstraints[0].remove(symbolicValue);
       }
-    }
-    return newProgramState ? new ProgramState(values, newReferences, newConstraints, visitedPoints, stack) : this;
+    });
+    return new ProgramState(newValues[0], newConstraints[0], visitedPoints, stack);
   }
 
   public ProgramState resetFieldValues(ConstraintManager constraintManager) {
@@ -295,35 +239,29 @@ public class ProgramState {
       return this;
     }
     PMap<Symbol, SymbolicValue> newValues = values;
-    PMap<SymbolicValue, Integer> newReferences = references;
     for (VariableTree variableTree : variableTrees) {
-      Symbol symbol = variableTree.symbol();
-      SymbolicValue oldValue = newValues.get(symbol);
-      if (oldValue != null) {
-        newReferences = decreaseReference(newReferences, oldValue);
-      }
       SymbolicValue newValue = constraintManager.createSymbolicValue(variableTree);
-      newValues = newValues.put(symbol, newValue);
-      newReferences = increaseReference(newReferences, newValue);
+      newValues = newValues.put(variableTree.symbol(), newValue);
     }
-    return new ProgramState(newValues, newReferences, constraints, visitedPoints, stack);
+    return new ProgramState(newValues, constraints, visitedPoints, stack);
   }
 
   public static boolean isField(Symbol symbol) {
     return symbol.isVariableSymbol() && !symbol.owner().isMethodSymbol();
   }
 
-  private static boolean isReachable(SymbolicValue symbolicValue, PMap<SymbolicValue, Integer> references) {
-    Integer integer = references.get(symbolicValue);
-    return integer != null && integer > 0;
-  }
-
   public boolean canReach(SymbolicValue symbolicValue) {
-    return isReachable(symbolicValue, references);
+    final boolean[] canReach = {false};
+    values.forEach((symbol, sv) -> {
+      if (symbolicValue.equals(sv)) {
+        canReach[0] = true;
+      }
+    });
+    return canReach[0];
   }
 
   public ProgramState visitedPoint(ExplodedGraph.ProgramPoint programPoint, int nbOfVisit) {
-    return new ProgramState(values, references, constraints, visitedPoints.put(programPoint, nbOfVisit), stack);
+    return new ProgramState(values, constraints, visitedPoints.put(programPoint, nbOfVisit), stack);
   }
 
   @CheckForNull

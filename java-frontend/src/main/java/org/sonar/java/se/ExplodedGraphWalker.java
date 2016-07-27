@@ -239,8 +239,7 @@ public class ExplodedGraphWalker extends BaseTreeVisitor {
 
   private void cleanUpProgramState(CFG.Block block) {
     if (cleanup) {
-      programState = programState.cleanupDeadSymbols(liveVariables.getOut(block));
-      programState = programState.cleanupConstraints();
+      programState = programState.purge(liveVariables.getOut(block));
     }
   }
 

@@ -20,6 +20,7 @@
 package org.sonar.java.se.checks;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.sonar.check.Rule;
 import org.sonar.java.se.CheckerContext;
 import org.sonar.java.se.ProgramState;
@@ -35,6 +36,7 @@ import org.sonar.plugins.java.api.tree.MethodInvocationTree;
 import org.sonar.plugins.java.api.tree.Tree;
 
 import java.util.List;
+import java.util.Set;
 
 @Rule(key = "S2222")
 public class LocksNotUnlockedCheck extends SECheck {
@@ -60,8 +62,11 @@ public class LocksNotUnlockedCheck extends SECheck {
     }
 
     @Override
-    public boolean references(SymbolicValue other) {
-      return operand.equals(other) || operand.references(other);
+    public Set<SymbolicValue> referenced() {
+      return ImmutableSet.<SymbolicValue>builder()
+        .addAll(operand.referenced())
+        .add(operand)
+        .build();
     }
 
     @Override

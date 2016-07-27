@@ -21,7 +21,7 @@ package org.sonar.java.se.symbolicvalues;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-
+import com.google.common.collect.ImmutableSet;
 import org.sonar.java.se.ExplodedGraphWalker;
 import org.sonar.java.se.ProgramState;
 import org.sonar.java.se.constraint.BooleanConstraint;
@@ -30,9 +30,9 @@ import org.sonar.java.se.constraint.ObjectConstraint;
 import org.sonar.java.se.constraint.TypedConstraint;
 
 import javax.annotation.CheckForNull;
-
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class SymbolicValue {
 
@@ -81,8 +81,8 @@ public class SymbolicValue {
     return !PROTECTED_SYMBOLIC_VALUES.contains(symbolicValue) && !(symbolicValue instanceof RelationalSymbolicValue);
   }
 
-  public boolean references(SymbolicValue other) {
-    return false;
+  public Set<SymbolicValue> referenced() {
+    return ImmutableSet.of();
   }
 
   @Override
@@ -177,8 +177,11 @@ public class SymbolicValue {
     }
 
     @Override
-    public boolean references(SymbolicValue other) {
-      return operand.equals(other) || operand.references(other);
+    public Set<SymbolicValue> referenced() {
+      return ImmutableSet.<SymbolicValue>builder()
+        .addAll(operand.referenced())
+        .add(operand)
+        .build();
     }
 
     @Override

@@ -21,12 +21,14 @@ package org.sonar.java.se.symbolicvalues;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import org.sonar.java.se.ProgramState;
 import org.sonar.java.se.constraint.BooleanConstraint;
 import org.sonar.java.se.constraint.Constraint;
 import org.sonar.java.se.constraint.ObjectConstraint;
-import org.sonar.java.se.ProgramState;
 
 import java.util.List;
+import java.util.Set;
 
 public abstract class BinarySymbolicValue extends SymbolicValue {
 
@@ -40,8 +42,13 @@ public abstract class BinarySymbolicValue extends SymbolicValue {
   public abstract BooleanConstraint shouldNotInverse();
 
   @Override
-  public boolean references(SymbolicValue other) {
-    return leftOp.equals(other) || rightOp.equals(other) || leftOp.references(other) || rightOp.references(other);
+  public Set<SymbolicValue> referenced() {
+    return ImmutableSet.<SymbolicValue>builder()
+      .addAll(leftOp.referenced())
+      .add(leftOp)
+      .addAll(rightOp.referenced())
+      .add(rightOp)
+      .build();
   }
 
   @Override
