@@ -20,10 +20,13 @@
 package org.sonar.java.se;
 
 import com.google.common.collect.ImmutableList;
-
 import org.sonar.java.resolve.JavaSymbol;
+import org.sonar.java.se.constraint.BooleanConstraint;
 import org.sonar.java.se.symbolicvalues.SymbolicValue;
 import org.sonar.plugins.java.api.semantic.Symbol;
+import org.sonar.plugins.java.api.semantic.Type;
+
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -46,6 +49,34 @@ public class MethodBehavior {
   }
 
   public void createYield(ProgramState programState, boolean happyPathYield) {
+    Symbol.TypeSymbol returnType = methodSymbol.returnType();
+    SymbolicValue returnValue = programState.returnValue();
+    if (happyPathYield && returnValue != null && returnType != null && returnType.type().isPrimitive(Type.Primitives.BOOLEAN)) {
+      boolean shouldStack = !parameters.values().contains(returnValue);
+      returnValue.setConstraint(programState, BooleanConstraint.TRUE).forEach(ps -> {
+        ProgramState ps1 = ps;
+        SymbolicValue returningValue = returnValue;
+        if(shouldStack) {
+          ps1 = ps1.stackValue(SymbolicValue.TRUE_LITERAL);
+          returningValue = SymbolicValue.TRUE_LITERAL;
+        }
+        createMethodYield(ps1, true, returningValue);
+      });
+      returnValue.setConstraint(programState, BooleanConstraint.FALSE).forEach(ps -> {
+        ProgramState ps1 = ps;
+        SymbolicValue returningValue = returnValue;
+        if(shouldStack) {
+          ps1 = ps1.stackValue(SymbolicValue.FALSE_LITERAL);
+          returningValue = SymbolicValue.FALSE_LITERAL;
+        }
+        createMethodYield(ps1, true, returningValue);
+      });
+    } else {
+      createMethodYield(programState, happyPathYield, returnValue);
+    }
+  }
+
+  private void createMethodYield(ProgramState programState, boolean happyPathYield, @Nullable SymbolicValue resultSV) {
     MethodYield yield = new MethodYield(parameters.size());
     yield.exception = !happyPathYield;
     List<SymbolicValue> parameterSymbolicValues = new ArrayList<>(parameters.values());
@@ -55,7 +86,6 @@ public class MethodBehavior {
     }
 
     if (!isConstructor() && !isVoidMethod()) {
-      SymbolicValue resultSV = programState.returnValue();
       if (resultSV != null) {
         yield.resultIndex = parameterSymbolicValues.indexOf(resultSV);
         yield.resultConstraint = programState.getConstraint(resultSV);

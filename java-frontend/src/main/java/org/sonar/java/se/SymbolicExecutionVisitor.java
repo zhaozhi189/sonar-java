@@ -67,10 +67,11 @@ public class SymbolicExecutionVisitor extends SubscriptionVisitor {
         ExplodedGraphWalker walker = egwFactory.createWalker(this);
         methodBehavior = walker.visitMethod(methodTree, methodBehavior);
         methodBehavior.completed();
+        LOG.error(methodTree.symbol().name()+" .. "+methodBehavior.yields());
       }
       return methodBehavior;
     } catch (ExplodedGraphWalker.MaximumStepsReachedException | ExplodedGraphWalker.ExplodedGraphTooBigException | BinaryRelation.TransitiveRelationExceededException exception) {
-      LOG.debug("Could not complete symbolic execution: ", exception);
+      LOG.error("Could not complete symbolic execution: ", exception);
     }
     return null;
   }
