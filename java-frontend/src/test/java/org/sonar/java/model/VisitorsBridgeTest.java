@@ -78,8 +78,7 @@ public class VisitorsBridgeTest {
   }
 
   private void checkFile(String filename, String code, VisitorsBridge visitorsBridge) {
-    visitorsBridge.setCurrentFile(new File(filename));
-    visitorsBridge.visitFile(parse(code));
+    visitorsBridge.visitFile(parse(code), new File(filename));
   }
 
   @Test

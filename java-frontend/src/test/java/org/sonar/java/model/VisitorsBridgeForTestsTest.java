@@ -44,14 +44,12 @@ public class VisitorsBridgeForTestsTest {
 
     Tree parse = JavaParser.createParser().parse("class A{}");
     VisitorsBridgeForTests visitorsBridgeForTests = new VisitorsBridgeForTests(Collections.singletonList(new DummyVisitor()), sonarComponents);
-    visitorsBridgeForTests.setCurrentFile(new File("dummy.java"));
-    visitorsBridgeForTests.visitFile(parse);
+    visitorsBridgeForTests.visitFile(parse, new File("dummy.java"));
     assertThat(visitorsBridgeForTests.lastCreatedTestContext().getSemanticModel()).isNull();
 
     parse = JavaParser.createParser().parse("class A{}");
     visitorsBridgeForTests = new VisitorsBridgeForTests(new DummyVisitor(), sonarComponents);
-    visitorsBridgeForTests.setCurrentFile(new File("dummy.java"));
-    visitorsBridgeForTests.visitFile(parse);
+    visitorsBridgeForTests.visitFile(parse, new File("dummy.java"));
     assertThat(visitorsBridgeForTests.lastCreatedTestContext().getSemanticModel()).isNotNull();
 
   }

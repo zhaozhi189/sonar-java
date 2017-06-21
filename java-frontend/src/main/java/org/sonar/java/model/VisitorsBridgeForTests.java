@@ -66,7 +66,7 @@ public class VisitorsBridgeForTests extends VisitorsBridge {
 
   @Override
   protected JavaFileScannerContext createScannerContext(CompilationUnitTree tree, SemanticModel semanticModel,
-                                                        SonarComponents sonarComponents, boolean failedParsing) {
+                                                        SonarComponents sonarComponents, File currentFile, boolean failedParsing) {
     SemanticModel model = enableSemantic ? semanticModel : null;
     testContext = new TestJavaFileScannerContext(tree, currentFile, model, sonarComponents, javaVersion, failedParsing);
     return testContext;

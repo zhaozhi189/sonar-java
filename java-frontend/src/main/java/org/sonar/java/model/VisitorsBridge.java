@@ -55,8 +55,6 @@ public class VisitorsBridge {
   private List<JavaFileScanner> executableScanners;
   private final SonarComponents sonarComponents;
   private final boolean symbolicExecutionEnabled;
-  private SemanticModel semanticModel;
-  protected File currentFile;
   protected JavaVersion javaVersion;
   private Set<String> classesNotFound = new TreeSet<>();
   private final SquidClassLoader classLoader;
@@ -90,27 +88,27 @@ public class VisitorsBridge {
     this.executableScanners = executableScanners(scanners, javaVersion);
   }
 
-  public void visitFile(@Nullable Tree parsedTree) {
-    semanticModel = null;
+  public void visitFile(@Nullable Tree parsedTree, File currentFile) {
+    SemanticModel semanticModel = null;
     CompilationUnitTree tree = new JavaTree.CompilationUnitTreeImpl(null, new ArrayList<>(), new ArrayList<>(), null, null);
     boolean fileParsed = parsedTree != null;
     if (fileParsed && parsedTree.is(Tree.Kind.COMPILATION_UNIT)) {
       tree = (CompilationUnitTree) parsedTree;
-      if (isNotJavaLangOrSerializable(PackageUtils.packageName(tree.packageDeclaration(), "/"))) {
+      if (isNotJavaLangOrSerializable(PackageUtils.packageName(tree.packageDeclaration(), "/"), currentFile.getName())) {
         try {
           semanticModel = SemanticModel.createFor(tree, classLoader);
         } catch (Exception e) {
           LOG.error("Unable to create symbol table for : " + currentFile.getAbsolutePath(), e);
           return;
         }
-        createSonarSymbolTable(tree);
+        createSonarSymbolTable(tree, semanticModel, currentFile);
       } else {
         SemanticModel.handleMissingTypes(tree);
       }
     }
-    JavaFileScannerContext javaFileScannerContext = createScannerContext(tree, semanticModel, sonarComponents, fileParsed);
+    JavaFileScannerContext javaFileScannerContext = createScannerContext(tree, semanticModel, sonarComponents, currentFile, fileParsed);
     // Symbolic execution checks
-    if (symbolicExecutionEnabled && isNotJavaLangOrSerializable(PackageUtils.packageName(tree.packageDeclaration(), "/"))) {
+    if (symbolicExecutionEnabled && isNotJavaLangOrSerializable(PackageUtils.packageName(tree.packageDeclaration(), "/"), currentFile.getName())) {
       new SymbolicExecutionVisitor(executableScanners).scanFile(javaFileScannerContext);
     }
     for (JavaFileScanner scanner : executableScanners) {
@@ -132,7 +130,7 @@ public class VisitorsBridge {
   }
 
   protected JavaFileScannerContext createScannerContext(
-    CompilationUnitTree tree, SemanticModel semanticModel, SonarComponents sonarComponents, boolean fileParsed) {
+    CompilationUnitTree tree, SemanticModel semanticModel, SonarComponents sonarComponents, File currentFile, boolean fileParsed) {
     return new DefaultJavaFileScannerContext(
       tree,
       currentFile,
@@ -142,8 +140,7 @@ public class VisitorsBridge {
       fileParsed);
   }
 
-  private boolean isNotJavaLangOrSerializable(String packageName) {
-    String name = currentFile.getName();
+  private boolean isNotJavaLangOrSerializable(String packageName, String name) {
     return !(inJavaLang(packageName) || isAnnotation(packageName, name) || isSerializable(packageName, name));
   }
 
@@ -159,7 +156,7 @@ public class VisitorsBridge {
     return "java/lang".equals(packageName);
   }
 
-  private void createSonarSymbolTable(CompilationUnitTree tree) {
+  private void createSonarSymbolTable(CompilationUnitTree tree, SemanticModel semanticModel, File currentFile) {
     if (sonarComponents != null && !sonarComponents.isSonarLintContext()) {
       SonarSymbolTableVisitor symVisitor = new SonarSymbolTableVisitor(sonarComponents.symbolizableFor(currentFile), semanticModel);
       symVisitor.visitCompilationUnit(tree);
@@ -168,16 +165,12 @@ public class VisitorsBridge {
 
   public void processRecognitionException(RecognitionException e, File file) {
     if(sonarComponents == null || !sonarComponents.reportAnalysisError(e, file)) {
-      this.visitFile(null);
+      this.visitFile(null, file);
       scanners.stream()
         .filter(scanner -> scanner instanceof AstScannerExceptionHandler)
         .forEach(scanner -> ((AstScannerExceptionHandler) scanner).processRecognitionException(e));
     }
 
-  }
-
-  public void setCurrentFile(File currentFile) {
-    this.currentFile = currentFile;
   }
 
   public void endOfAnalysis() {

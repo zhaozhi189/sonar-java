@@ -75,7 +75,6 @@ public class JavaAstScanner {
   }
 
   private void simpleScan(File file) {
-    visitor.setCurrentFile(file);
     try {
       String fileContent = getFileContent(file);
       Tree ast;
@@ -84,7 +83,7 @@ public class JavaAstScanner {
       } else {
         ast = parser.parse(fileContent);
       }
-      visitor.visitFile(ast);
+      visitor.visitFile(ast, file);
     } catch (RecognitionException e) {
       checkInterrupted(e);
       LOG.error("Unable to parse source file : " + file.getAbsolutePath());
