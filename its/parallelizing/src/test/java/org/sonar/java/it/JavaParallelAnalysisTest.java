@@ -1,4 +1,4 @@
-/*
+package org.sonar.java.it;/*
  * SonarQube Java
  * Copyright (C) 2013-2017 SonarSource SA
  * mailto:info AT sonarsource DOT com
@@ -17,6 +17,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
+
 import com.google.common.base.Preconditions;
 import com.sonar.orchestrator.Orchestrator;
 import com.sonar.orchestrator.build.BuildResult;
@@ -44,7 +45,7 @@ public class JavaParallelAnalysisTest {
   @Test
   public void perform() throws IOException {
     ORCHESTRATOR.getServer().provisionProject("project", "project");
-    ORCHESTRATOR.getServer().associateProjectToQualityProfile("project", "java", "no-rules");
+    ORCHESTRATOR.getServer().associateProjectToQualityProfile("project", "java", "rules");
     SonarScanner build = SonarScanner.create(FileLocation.of("../sources/tomcat80").getFile())
       .setEnvironmentVariable("SONAR_RUNNER_OPTS", "-Xmx1024m -server")
       .setProperty("sonar.importSources", "false")
