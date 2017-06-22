@@ -58,6 +58,7 @@ public class VisitorsBridge {
   protected JavaVersion javaVersion;
   private Set<String> classesNotFound = new TreeSet<>();
   private final SquidClassLoader classLoader;
+  private final DefaultJavaFileScannerContext defaultJavaFileScannerContext;
 
   @VisibleForTesting
   public VisitorsBridge(JavaFileScanner visitor) {
@@ -81,10 +82,12 @@ public class VisitorsBridge {
     this.sonarComponents = sonarComponents;
     this.classLoader = ClassLoaderBuilder.create(projectClasspath);
     this.symbolicExecutionEnabled = symbolicExecutionEnabled;
+    defaultJavaFileScannerContext = new DefaultJavaFileScannerContext(sonarComponents);
   }
 
   public void setJavaVersion(JavaVersion javaVersion) {
     this.javaVersion = javaVersion;
+    defaultJavaFileScannerContext.setVersion(javaVersion);
     this.executableScanners = executableScanners(scanners, javaVersion);
   }
 
@@ -131,13 +134,8 @@ public class VisitorsBridge {
 
   protected JavaFileScannerContext createScannerContext(
     CompilationUnitTree tree, SemanticModel semanticModel, SonarComponents sonarComponents, File currentFile, boolean fileParsed) {
-    return new DefaultJavaFileScannerContext(
-      tree,
-      currentFile,
-      semanticModel,
-      sonarComponents,
-      javaVersion,
-      fileParsed);
+    defaultJavaFileScannerContext.setupFileContext(tree, semanticModel, currentFile, fileParsed);
+    return defaultJavaFileScannerContext;
   }
 
   private boolean isNotJavaLangOrSerializable(String packageName, String name) {

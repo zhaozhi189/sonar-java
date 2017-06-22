@@ -20,10 +20,8 @@
 package org.sonar.java;
 
 import com.google.common.collect.ImmutableList;
-
 import org.sonar.api.SonarProduct;
 import org.sonar.api.batch.fs.FileSystem;
-import org.sonar.api.batch.fs.InputFile;
 import org.sonar.api.batch.sensor.SensorContext;
 import org.sonar.api.ce.measure.RangeDistributionBuilder;
 import org.sonar.api.issue.NoSonarFilter;
@@ -55,13 +53,12 @@ public class Measurer extends SubscriptionVisitor {
   private final FileSystem fs;
   private final SensorContext sensorContext;
   private final NoSonarFilter noSonarFilter;
-  private InputFile sonarFile;
-  private int methods;
-  private int complexityInMethods;
-  private RangeDistributionBuilder methodComplexityDistribution;
+  private final ThreadLocal<Integer> methods = new ThreadLocal<>();
+  private final ThreadLocal<Integer> complexityInMethods = new ThreadLocal<>();
+  private final ThreadLocal<RangeDistributionBuilder> methodComplexityDistribution = new ThreadLocal<>();
 
-  private final Deque<ClassTree> classTrees = new LinkedList<>();
-  private int classes;
+  private final ThreadLocal<Deque<ClassTree>> classTrees = new ThreadLocal<>();
+  private ThreadLocal<Integer> classes = new ThreadLocal<>();
 
   public Measurer(FileSystem fs, SensorContext context, NoSonarFilter noSonarFilter) {
     this.fs = fs;
@@ -72,7 +69,6 @@ public class Measurer extends SubscriptionVisitor {
   public class TestFileMeasurer implements JavaFileScanner {
     @Override
     public void scanFile(JavaFileScannerContext context) {
-      sonarFile = fs.inputFile(fs.predicates().is(context.getFile()));
       createCommentLineVisitorAndFindNoSonar(context);
     }
   }
@@ -87,29 +83,28 @@ public class Measurer extends SubscriptionVisitor {
 
   @Override
   public void scanFile(JavaFileScannerContext context) {
-    sonarFile = fs.inputFile(fs.predicates().is(context.getFile()));
     CommentLinesVisitor commentLinesVisitor = createCommentLineVisitorAndFindNoSonar(context);
     if(isSonarLintContext()) {
       // No need to compute metrics on SonarLint side, but the no sonar filter is still required
       return;
     }
-    classTrees.clear();
-    methods = 0;
-    complexityInMethods = 0;
-    classes = 0;
-    methodComplexityDistribution = new RangeDistributionBuilder(LIMITS_COMPLEXITY_METHODS);
+    classTrees.set(new LinkedList<>());
+    methods.set(0);
+    complexityInMethods.set(0);
+    classes.set(0);
+    methodComplexityDistribution.set(new RangeDistributionBuilder(LIMITS_COMPLEXITY_METHODS));
     super.scanFile(context);
     //leave file.
     int fileComplexity = context.getComplexityNodes(context.getTree()).size();
-    saveMetricOnFile(CoreMetrics.CLASSES, classes);
-    saveMetricOnFile(CoreMetrics.FUNCTIONS, methods);
-    saveMetricOnFile(CoreMetrics.COMPLEXITY_IN_FUNCTIONS, complexityInMethods);
+    saveMetricOnFile(CoreMetrics.CLASSES, classes.get());
+    saveMetricOnFile(CoreMetrics.FUNCTIONS, methods.get());
+    saveMetricOnFile(CoreMetrics.COMPLEXITY_IN_FUNCTIONS, complexityInMethods.get());
     saveMetricOnFile(CoreMetrics.COMPLEXITY_IN_CLASSES, fileComplexity);
     saveMetricOnFile(CoreMetrics.COMPLEXITY, fileComplexity);
     saveMetricOnFile(CoreMetrics.COMMENT_LINES, commentLinesVisitor.commentLinesMetric());
     saveMetricOnFile(CoreMetrics.STATEMENTS, new StatementVisitor().numberOfStatements(context.getTree()));
     saveMetricOnFile(CoreMetrics.NCLOC, new LinesOfCodeVisitor().linesOfCode(context.getTree()));
-    saveMetricOnFile(CoreMetrics.FUNCTION_COMPLEXITY_DISTRIBUTION, methodComplexityDistribution.build());
+    saveMetricOnFile(CoreMetrics.FUNCTION_COMPLEXITY_DISTRIBUTION, methodComplexityDistribution.get().build());
 
     RangeDistributionBuilder fileComplexityDistribution = new RangeDistributionBuilder(LIMITS_COMPLEXITY_FILES);
     saveMetricOnFile(CoreMetrics.FILE_COMPLEXITY_DISTRIBUTION, fileComplexityDistribution.add(fileComplexity).build());
@@ -130,26 +125,26 @@ public class Measurer extends SubscriptionVisitor {
   private CommentLinesVisitor createCommentLineVisitorAndFindNoSonar(JavaFileScannerContext context) {
     CommentLinesVisitor commentLinesVisitor = new CommentLinesVisitor();
     commentLinesVisitor.analyzeCommentLines(context.getTree());
-    noSonarFilter.noSonarInFile(sonarFile, commentLinesVisitor.noSonarLines());
+    noSonarFilter.noSonarInFile(fs.inputFile(fs.predicates().is(context.getFile())), commentLinesVisitor.noSonarLines());
     return commentLinesVisitor;
   }
 
   @Override
   public void visitNode(Tree tree) {
     if (isClassTree(tree)) {
-      classes++;
-      classTrees.push((ClassTree) tree);
+      classes.set(classes.get() + 1);
+      classTrees.get().push((ClassTree) tree);
     }
     if (tree.is(Tree.Kind.NEW_CLASS) && ((NewClassTree) tree).classBody() != null) {
-      classes--;
+      classes.set(classes.get() - 1);
     }
-    if (tree.is(Tree.Kind.METHOD, Tree.Kind.CONSTRUCTOR) && classTrees.peek().simpleName() != null) {
+    if (tree.is(Tree.Kind.METHOD, Tree.Kind.CONSTRUCTOR) && classTrees.get().peek().simpleName() != null) {
       //don't count methods in anonymous classes.
       MethodTree methodTree = (MethodTree) tree;
-      methods++;
+      methods.set(methods.get() +1);
       int methodComplexity = context.getComplexityNodes(methodTree).size();
-      methodComplexityDistribution.add(methodComplexity);
-      complexityInMethods += methodComplexity;
+      methodComplexityDistribution.get().add(methodComplexity);
+      complexityInMethods.set(complexityInMethods.get()+methodComplexity);
     }
 
   }
@@ -157,7 +152,7 @@ public class Measurer extends SubscriptionVisitor {
   @Override
   public void leaveNode(Tree tree) {
     if (isClassTree(tree)) {
-      classTrees.pop();
+      classTrees.get().pop();
     }
   }
 
@@ -166,6 +161,6 @@ public class Measurer extends SubscriptionVisitor {
   }
 
   private <T extends Serializable> void saveMetricOnFile(Metric<T> metric, T value) {
-    sensorContext.<T>newMeasure().forMetric(metric).on(sonarFile).withValue(value).save();
+    sensorContext.<T>newMeasure().forMetric(metric).on(fs.inputFile(fs.predicates().is(context.getFile()))).withValue(value).save();
   }
 }

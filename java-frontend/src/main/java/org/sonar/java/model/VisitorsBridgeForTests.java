@@ -27,7 +27,6 @@ import org.sonar.java.resolve.SemanticModel;
 import org.sonar.plugins.java.api.JavaCheck;
 import org.sonar.plugins.java.api.JavaFileScanner;
 import org.sonar.plugins.java.api.JavaFileScannerContext;
-import org.sonar.plugins.java.api.JavaVersion;
 import org.sonar.plugins.java.api.tree.CompilationUnitTree;
 import org.sonar.plugins.java.api.tree.Tree;
 
@@ -42,7 +41,7 @@ import java.util.stream.Collectors;
 
 public class VisitorsBridgeForTests extends VisitorsBridge {
 
-  private TestJavaFileScannerContext testContext;
+  private final TestJavaFileScannerContext testContext;
   private boolean enableSemantic = true;
 
 
@@ -62,13 +61,15 @@ public class VisitorsBridgeForTests extends VisitorsBridge {
 
   public VisitorsBridgeForTests(Iterable visitors, List<File> projectClasspath, @Nullable SonarComponents sonarComponents, boolean symbolicExecutionEnabled) {
     super(visitors, projectClasspath, sonarComponents, symbolicExecutionEnabled);
+    testContext = new TestJavaFileScannerContext(sonarComponents);
   }
 
   @Override
   protected JavaFileScannerContext createScannerContext(CompilationUnitTree tree, SemanticModel semanticModel,
                                                         SonarComponents sonarComponents, File currentFile, boolean failedParsing) {
     SemanticModel model = enableSemantic ? semanticModel : null;
-    testContext = new TestJavaFileScannerContext(tree, currentFile, model, sonarComponents, javaVersion, failedParsing);
+    testContext.setVersion(javaVersion);
+    testContext.setupFileContext(tree, model, currentFile, failedParsing);
     return testContext;
   }
 
@@ -80,9 +81,8 @@ public class VisitorsBridgeForTests extends VisitorsBridge {
 
     private final Set<AnalyzerMessage> issues = new HashSet<>();
 
-    public TestJavaFileScannerContext(CompilationUnitTree tree, File file, SemanticModel semanticModel,
-                                      @Nullable SonarComponents sonarComponents, JavaVersion javaVersion, boolean failedParsing) {
-      super(tree, file, semanticModel, sonarComponents, javaVersion, failedParsing);
+    public TestJavaFileScannerContext(@Nullable SonarComponents sonarComponents) {
+      super(sonarComponents);
     }
 
     public Set<AnalyzerMessage> getIssues() {

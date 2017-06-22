@@ -44,15 +44,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class DefaultJavaFileScannerContext implements JavaFileScannerContext {
-  private final CompilationUnitTree tree;
+  private final ThreadLocal<CompilationUnitTree> tree;
   @VisibleForTesting
-  private final SemanticModel semanticModel;
+  private final ThreadLocal<SemanticModel> semanticModel;
+  private final ThreadLocal<ComplexityVisitor> complexityVisitor;
+  private final ThreadLocal<File> file;
+  private final ThreadLocal<Boolean> fileParsed;
   private final SonarComponents sonarComponents;
-  private final ComplexityVisitor complexityVisitor;
-  private final File file;
-  private final JavaVersion javaVersion;
-  private final boolean fileParsed;
-
+  private JavaVersion javaVersion;
+/*
   public DefaultJavaFileScannerContext(CompilationUnitTree tree, File file, SemanticModel semanticModel,
                                        @Nullable SonarComponents sonarComponents, JavaVersion javaVersion, boolean fileParsed) {
     this.tree = tree;
@@ -62,11 +62,20 @@ public class DefaultJavaFileScannerContext implements JavaFileScannerContext {
     this.complexityVisitor = new ComplexityVisitor();
     this.javaVersion = javaVersion;
     this.fileParsed = fileParsed;
+  }*/
+
+  public DefaultJavaFileScannerContext(@Nullable SonarComponents sonarComponents) {
+    this.sonarComponents = sonarComponents;
+    tree = new ThreadLocal<>();
+    semanticModel = new ThreadLocal<>();
+    complexityVisitor = new ThreadLocal<>();
+    file = new ThreadLocal<>();
+    fileParsed = new ThreadLocal<>();
   }
 
   @Override
   public CompilationUnitTree getTree() {
-    return tree;
+    return tree.get();
   }
 
   @Override
@@ -81,13 +90,13 @@ public class DefaultJavaFileScannerContext implements JavaFileScannerContext {
 
   @Override
   public void addIssue(int line, JavaCheck javaCheck, String message, @Nullable Integer cost) {
-    sonarComponents.addIssue(file, javaCheck, line, message, cost);
+    sonarComponents.addIssue(getFile(), javaCheck, line, message, cost);
   }
 
   @Override
   @Nullable
   public Object getSemanticModel() {
-    return semanticModel;
+    return semanticModel.get();
   }
 
   @Override
@@ -97,12 +106,12 @@ public class DefaultJavaFileScannerContext implements JavaFileScannerContext {
 
   @Override
   public boolean fileParsed() {
-    return fileParsed;
+    return fileParsed.get();
   }
 
   @Override
   public String getFileKey() {
-    return file.getAbsolutePath();
+    return file.get().getAbsolutePath();
   }
 
   @Override
@@ -132,7 +141,7 @@ public class DefaultJavaFileScannerContext implements JavaFileScannerContext {
     } else {
       reportedFlows = javaCheck instanceof SECheck ? Iterables.limit(flows, 1) : flows;
     }
-    sonarComponents.reportIssue(createAnalyzerMessage(file, javaCheck, syntaxNode, null, message, reportedFlows, cost));
+    sonarComponents.reportIssue(createAnalyzerMessage(getFile(), javaCheck, syntaxNode, null, message, reportedFlows, cost));
   }
 
   @Override
@@ -143,17 +152,17 @@ public class DefaultJavaFileScannerContext implements JavaFileScannerContext {
   @Override
   public void reportIssue(JavaCheck javaCheck, Tree startTree, Tree endTree, String message, List<Location> secondary, @Nullable Integer cost) {
     List<List<Location>> flows = secondary.stream().map(Collections::singletonList).collect(Collectors.toList());
-    sonarComponents.reportIssue(createAnalyzerMessage(file, javaCheck, startTree, endTree, message, flows, cost));
+    sonarComponents.reportIssue(createAnalyzerMessage(getFile(), javaCheck, startTree, endTree, message, flows, cost));
   }
 
   @Override
   public List<String> getFileLines() {
-    return sonarComponents.fileLines(file);
+    return sonarComponents.fileLines(getFile());
   }
 
   @Override
   public String getFileContent() {
-    return sonarComponents.fileContent(file);
+    return sonarComponents.fileContent(getFile());
   }
 
   protected static AnalyzerMessage createAnalyzerMessage(File file, JavaCheck javaCheck, Tree startTree, @Nullable Tree endTree, String message, Iterable<List<Location>> flows,
@@ -170,16 +179,28 @@ public class DefaultJavaFileScannerContext implements JavaFileScannerContext {
 
   @Override
   public File getFile() {
-    return file;
+    return file.get();
   }
 
   @Override
   public List<Tree> getComplexityNodes(Tree tree) {
-    return complexityVisitor.getNodes(tree);
+    return complexityVisitor.get().getNodes(tree);
   }
 
   @Override
   public List<Tree> getMethodComplexityNodes(ClassTree enclosingClass, MethodTree methodTree) {
-    return getComplexityNodes(tree);
+    return getComplexityNodes(tree.get());
+  }
+
+  public void setVersion(JavaVersion version) {
+    this.javaVersion = version;
+  }
+
+  public void setupFileContext(CompilationUnitTree cut, SemanticModel semantic, File currentFile, boolean parsed) {
+    tree.set(cut);
+    semanticModel.set(semantic);
+    file.set(currentFile);
+    fileParsed.set(parsed);
+    complexityVisitor.set(new ComplexityVisitor());
   }
 }

@@ -21,7 +21,7 @@ package org.sonar.java.ast;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.sonar.sslr.api.RecognitionException;
 import com.sonar.sslr.api.typed.ActionParser;
 import org.sonar.api.utils.log.Logger;
@@ -32,14 +32,17 @@ import org.sonar.java.model.JavaVersionImpl;
 import org.sonar.java.model.VisitorsBridge;
 import org.sonar.plugins.java.api.JavaVersion;
 import org.sonar.plugins.java.api.tree.Tree;
-import org.sonar.squidbridge.ProgressReport;
 import org.sonar.squidbridge.api.AnalysisException;
 
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.InterruptedIOException;
 import java.util.Collections;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class JavaAstScanner {
   private static final Logger LOG = Loggers.get(JavaAstScanner.class);
@@ -54,35 +57,47 @@ public class JavaAstScanner {
   }
 
   public void scan(Iterable<File> files) {
-    ProgressReport progressReport = new ProgressReport("Report about progress of Java AST analyzer", TimeUnit.SECONDS.toMillis(10));
-    progressReport.start(Lists.newArrayList(files));
-
-    boolean successfullyCompleted = false;
-    try {
-      for (File file : files) {
-        simpleScan(file);
-        progressReport.nextFile();
-      }
-      successfullyCompleted = true;
-    } finally {
-      if (successfullyCompleted) {
-        progressReport.stop();
-      } else {
-        progressReport.cancel();
-      }
+    if(!files.iterator().hasNext()) {
       visitor.endOfAnalysis();
+      return;
+    }
+    ExecutorService executor = createExecutor();
+    CompletionService cs =  new ExecutorCompletionService(executor);
+    try {
+      int fileSize = 0;
+      for (File file : files) {
+        cs.submit(()-> simpleScan(file), null);
+        fileSize++;
+      }
+      executor.shutdown();
+      for (int i = 0; i < fileSize; i++) {
+        cs.take().get();
+      }
+    } catch (InterruptedException e) {
+      // TODO
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      if(cause instanceof RuntimeException) {
+        throw (RuntimeException) cause;
+      } else if(cause instanceof Error) {
+        throw ((Error) cause);
+      }
+    } finally {
+      visitor.endOfAnalysis();
+      executor.shutdownNow();
     }
   }
 
+  private ExecutorService createExecutor() {
+    int numThreads = Runtime.getRuntime().availableProcessors() + 1;
+    return Executors.newFixedThreadPool(numThreads, new ThreadFactoryBuilder().setNameFormat("SonarJava-parallel-analysis-%d").build());
+  }
+
   private void simpleScan(File file) {
+    LOG.warn("Analyzing "+file.getAbsolutePath());
     try {
       String fileContent = getFileContent(file);
-      Tree ast;
-      if(fileContent.isEmpty()) {
-        ast = parser.parse(file);
-      } else {
-        ast = parser.parse(fileContent);
-      }
+      Tree ast = getTree(file, fileContent);
       visitor.visitFile(ast, file);
     } catch (RecognitionException e) {
       checkInterrupted(e);
@@ -97,6 +112,17 @@ public class JavaAstScanner {
       LOG.error("A stack overflow error occured while analyzing file: " + file.getAbsolutePath());
       throw error;
     }
+    LOG.warn("Finished Analyzing "+file.getAbsolutePath());
+  }
+
+  private synchronized Tree getTree(File file, String fileContent) {
+    Tree ast;
+    if(fileContent.isEmpty()) {
+      ast = parser.parse(file);
+    } else {
+      ast = parser.parse(fileContent);
+    }
+    return ast;
   }
 
   private String getFileContent(File file) {
