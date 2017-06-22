@@ -94,7 +94,6 @@ public class JavaAstScanner {
   }
 
   private void simpleScan(File file) {
-    LOG.warn("Analyzing "+file.getAbsolutePath());
     try {
       String fileContent = getFileContent(file);
       Tree ast = getTree(file, fileContent);
@@ -112,7 +111,6 @@ public class JavaAstScanner {
       LOG.error("A stack overflow error occured while analyzing file: " + file.getAbsolutePath());
       throw error;
     }
-    LOG.warn("Finished Analyzing "+file.getAbsolutePath());
   }
 
   private synchronized Tree getTree(File file, String fileContent) {
