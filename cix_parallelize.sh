@@ -6,12 +6,14 @@ echo "cloning Tomcat 8 project"
 cd its/sources
 if [ ! -d tomcat80 ]; then
   git clone git@github.com:apache/tomcat80.git
+  cd tomcat80
   #fix version of sources tested
   git checkout db9c56ab66fa96e136bba36e40d466b92378b5c5
+  else
+  cd tomcat80
 fi
 
 #build tomcat 8
-cd tomcat80
 ant clean deploy
 
 cd ../../parallelizing
