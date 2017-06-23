@@ -90,6 +90,7 @@ public class JavaAstScanner {
 
   private ExecutorService createExecutor() {
     int numThreads = Runtime.getRuntime().availableProcessors() + 1;
+    LOG.warn("Running on "+numThreads);
     return Executors.newFixedThreadPool(numThreads, new ThreadFactoryBuilder().setNameFormat("SonarJava-parallel-analysis-%d").build());
   }
 
