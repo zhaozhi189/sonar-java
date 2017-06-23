@@ -44,16 +44,17 @@ public class JavaParallelAnalysisTest {
 
   @Test
   public void perform() throws IOException {
-    ORCHESTRATOR.getServer().provisionProject("project", "project");
+    ORCHESTRATOR.getServer().provisionProject("org.apache:tomcat8", "Apache Tomcat-8");
     ORCHESTRATOR.getServer().associateProjectToQualityProfile("project", "java", "rules");
     SonarScanner build = SonarScanner.create(FileLocation.of("../sources/tomcat80").getFile())
       .setEnvironmentVariable("SONAR_RUNNER_OPTS", "-Xmx1024m -server")
       .setProperty("sonar.importSources", "false")
       .setProperty("sonar.showProfiling", "true")
+      .setProperty("sonar.sources", ".")
       .setProperty("sonar.preloadFileMetadata", "true")
-      .setProjectKey("project")
-      .setProjectName("project")
-      .setProjectVersion("1")
+      .setProjectKey("org.apache:tomcat8")
+      .setProjectName("Apache Tomcat-8")
+      .setProjectVersion("trunk")
       .setSourceEncoding("UTF-8")
       .setSourceDirs(".");
 
