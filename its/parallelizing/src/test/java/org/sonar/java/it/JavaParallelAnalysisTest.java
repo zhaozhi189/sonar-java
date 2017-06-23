@@ -45,7 +45,7 @@ public class JavaParallelAnalysisTest {
   @Test
   public void perform() throws IOException {
     ORCHESTRATOR.getServer().provisionProject("org.apache:tomcat8", "Apache Tomcat-8");
-    ORCHESTRATOR.getServer().associateProjectToQualityProfile("project", "java", "rules");
+    ORCHESTRATOR.getServer().associateProjectToQualityProfile("org.apache:tomcat8", "java", "rules");
     SonarScanner build = SonarScanner.create(FileLocation.of("../sources/tomcat80").getFile())
       .setEnvironmentVariable("SONAR_RUNNER_OPTS", "-Xmx1024m -server")
       .setProperty("sonar.importSources", "false")
