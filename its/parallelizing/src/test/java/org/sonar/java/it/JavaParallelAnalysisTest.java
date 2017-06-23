@@ -66,7 +66,7 @@ public class JavaParallelAnalysisTest {
   }
 
   private static double sensorTime(File projectDir, String logs, String sensor) throws IOException {
-    File profilingFile = new File(projectDir, ".sonar/profiling/project-profiler.properties");
+    File profilingFile = new File(projectDir, ".sonar/profiling/org.apache_tomcat8-profiler.properties");
     Preconditions.checkArgument(profilingFile.isFile(), "Cannot find profiling file to extract time for sensor " + sensor + ": " + profilingFile.getAbsolutePath());
     return getTimeValue(profilingFile, sensor);
   }
