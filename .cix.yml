@@ -33,13 +33,6 @@ exclude:
   - TEST: plugin
     SLAVE: performance
     SQ_VERSION: LATEST_RELEASE
-#exclude all ruling jobs other than on LATEST_RELEASE on linux
-  - TEST: ruling
-    SLAVE: linux
-    SQ_VERSION: LTS
-  - TEST: ruling
-    SLAVE: linux
-    SQ_VERSION: DEV
 #exclude all ruling jobs on windows
   - TEST: ruling
     SLAVE: windows
@@ -60,13 +53,6 @@ exclude:
   - TEST: ruling
     SLAVE: performance
     SQ_VERSION: LATEST_RELEASE
-#eclude all semantic jobs on linux slaves other than LATEST_RELEASE
-  - TEST: semantic
-    SLAVE: linux
-    SQ_VERSION: LTS
-  - TEST: semantic
-    SLAVE: linux
-    SQ_VERSION: DEV
 #eclude all semantic jobs on windows slaves
   - TEST: semantic
     SLAVE: windows
