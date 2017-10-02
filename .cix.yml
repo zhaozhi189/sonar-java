@@ -30,13 +30,16 @@ exclude:
   - TEST: ruling
     SLAVE: linux
     SQ_VERSION: DEV
-#exclude all ruling jobs other than on LATEST_RELEASE on windows
+#exclude all ruling jobs on windows
   - TEST: ruling
     SLAVE: windows
     SQ_VERSION: LTS
   - TEST: ruling
     SLAVE: windows
     SQ_VERSION: DEV
+  - TEST: ruling
+    SLAVE: windows
+    SQ_VERSION: LATEST_RELEASE
 #eclude all semantic jobs on linux slaves other than LATEST_RELEASE
   - TEST: semantic
     SLAVE: linux
