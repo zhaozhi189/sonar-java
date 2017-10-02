@@ -31,7 +31,7 @@ CI)
        -Dsonar.projectVersion=$SONAR_PROJECT_VERSION \
        -Dsonar.login=$SONAR_TOKEN
   
-  elif [[ "${TRAVIS_BRANCH}" == "branch-"* ]] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
+  elif [[ "${TRAVIS_BRANCH}" == "experimental-java9" ]] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
   # no dory analysis on release branch
 
   # Fetch all commit history so that SonarQube has exact blame information
