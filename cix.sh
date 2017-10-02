@@ -2,6 +2,9 @@
 set -euo pipefail
 echo "Running $TEST with SQ=$SQ_VERSION"
 
+export JAVA_HOME=/opt/sonarsource/jvm/java-1.9.0-sun-x64
+export PATH=$JAVA_HOME/bin:$PATH
+
 case "$TEST" in
   ruling)
     if [[ $GITHUB_BRANCH == "PULLREQUEST-"* && $SLAVE != "windows" ]] || [[ $GITHUB_BRANCH != "PULLREQUEST-"* && $SLAVE == "windows" ]]
@@ -12,9 +15,6 @@ case "$TEST" in
     fi
     #fetch submodule containing sources of ruling projects
     git submodule update --init --recursive
-    #ruling requires java 8
-    export JAVA_HOME=/opt/sonarsource/jvm/java-1.8.0-sun-x64
-    export PATH=$JAVA_HOME/bin:$PATH
   ;;
   performancing)
     #fetch submodule containing sources of performancing projects
@@ -25,9 +25,6 @@ case "$TEST" in
   semantic)
     #fetch submodule containing sources of projects used for semantic ITs
     git submodule update --init --recursive
-    #Semantic IT projects requires java 8
-    export JAVA_HOME=/opt/sonarsource/jvm/java-1.8.0-sun-x64
-    export PATH=$JAVA_HOME/bin:$PATH
   ;;
   *)
     echo "Unexpected TEST mode: $TEST"
