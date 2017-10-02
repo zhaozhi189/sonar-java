@@ -1,12 +1,11 @@
 # Definition of QA pipeline at SonarSource
 #
-# Possible values for SLAVE: "performance" (for perf tests) and "linux" (for linux machines connected to DB services)
+# Possible values for SLAVE: "linux" (for linux machines connected to DB services)
 
 TEST:
   - plugin
   - ruling
   - semantic
-  - performancing
 
 SQ_VERSION:
   - LTS
@@ -14,16 +13,6 @@ SQ_VERSION:
   - LATEST_RELEASE
 
 exclude:
-#exclude plugin tests on performance slaves
-  - TEST: plugin
-    SLAVE: performance
-    SQ_VERSION: LTS
-  - TEST: plugin
-    SLAVE: performance
-    SQ_VERSION: DEV
-  - TEST: plugin
-    SLAVE: performance
-    SQ_VERSION: LATEST_RELEASE
 #exclude plugin tests on windows slaves
   - TEST: plugin
     SLAVE: windows
@@ -33,16 +22,6 @@ exclude:
     SQ_VERSION: DEV
   - TEST: plugin
     SLAVE: windows
-    SQ_VERSION: LATEST_RELEASE
-#exclude ruling tests on performance slaves
-  - TEST: ruling
-    SLAVE: performance
-    SQ_VERSION: LTS
-  - TEST: ruling
-    SLAVE: performance
-    SQ_VERSION: DEV
-  - TEST: ruling
-    SLAVE: performance
     SQ_VERSION: LATEST_RELEASE
 #exclude all ruling jobs other than on LATEST_RELEASE on linux
   - TEST: ruling
@@ -58,43 +37,6 @@ exclude:
   - TEST: ruling
     SLAVE: windows
     SQ_VERSION: DEV
-#exclude all performances jobs on linux slaves
-  - TEST: performancing
-    SLAVE: linux
-    SQ_VERSION: LTS
-  - TEST: performancing
-    SLAVE: linux
-    SQ_VERSION: DEV
-  - TEST: performancing
-    SLAVE: linux
-    SQ_VERSION: LATEST_RELEASE
-#exclude all performances jobs on windows slaves
-  - TEST: performancing
-    SLAVE: windows
-    SQ_VERSION: LTS
-  - TEST: performancing
-    SLAVE: windows
-    SQ_VERSION: DEV
-  - TEST: performancing
-    SLAVE: windows
-    SQ_VERSION: LATEST_RELEASE
-#exclude all performances jobs other than on LATEST_RELEASE
-  - TEST: performancing
-    SLAVE: performance
-    SQ_VERSION: LTS
-  - TEST: performancing
-    SLAVE: performance
-    SQ_VERSION: DEV
-#eclude all semantic jobs on performance slaves
-  - TEST: semantic
-    SLAVE: performance
-    SQ_VERSION: LTS
-  - TEST: semantic
-    SLAVE: performance
-    SQ_VERSION: DEV
-  - TEST: semantic
-    SLAVE: performance
-    SQ_VERSION: LATEST_RELEASE
 #eclude all semantic jobs on linux slaves other than LATEST_RELEASE
   - TEST: semantic
     SLAVE: linux
