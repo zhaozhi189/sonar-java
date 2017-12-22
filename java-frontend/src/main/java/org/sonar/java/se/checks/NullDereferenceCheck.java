@@ -135,6 +135,7 @@ public class NullDereferenceCheck extends SECheck {
   }
 
   private void reportIssue(SymbolicValue currentVal, Tree syntaxNode, ExplodedGraph.Node node) {
+    System.out.println("NPE " + syntaxNode.firstToken().line() + " " + syntaxNode);
     String message = "A \"NullPointerException\" could be thrown; ";
     if (syntaxNode.is(Tree.Kind.MEMBER_SELECT)
         && ((MemberSelectExpressionTree) syntaxNode).expression().is(Tree.Kind.METHOD_INVOCATION)) {

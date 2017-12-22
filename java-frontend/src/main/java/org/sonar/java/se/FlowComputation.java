@@ -20,9 +20,11 @@
 package org.sonar.java.se;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
+import java.util.concurrent.TimeUnit;
 import org.sonar.api.utils.log.Logger;
 import org.sonar.api.utils.log.Loggers;
 import org.sonar.java.cfg.CFG;
@@ -159,6 +161,7 @@ public class FlowComputation {
   }
 
   private Set<Flow> run(final ExplodedGraph.Node node, PSet<Symbol> trackedSymbols) {
+    Stopwatch stopwatch = Stopwatch.createStarted();
     Set<Flow> flows = new HashSet<>();
     Deque<ExecutionPath> workList = new ArrayDeque<>();
     SameConstraints sameConstraints = new SameConstraints(node, trackedSymbols, domains);
@@ -184,6 +187,15 @@ public class FlowComputation {
         LOG.debug("Flow was not able to complete");
         break;
       }
+    }
+    stopwatch.stop();
+    Tree tree = node.programPoint.syntaxTree();
+    String line = tree != null ? String.valueOf(tree.firstToken().line()) : "n/a";
+    System.out.println("Computed flow for " + line + " in " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + "ms. Flows " + flows.size());
+    if (flows.size() > 300) {
+      System.out.println("------------");
+      System.out.println(node.programState);
+      System.out.println("------------");
     }
     return flows;
   }

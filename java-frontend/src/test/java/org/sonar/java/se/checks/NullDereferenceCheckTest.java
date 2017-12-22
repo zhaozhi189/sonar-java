@@ -19,10 +19,39 @@
  */
 package org.sonar.java.se.checks;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.sonar.java.se.JavaCheckVerifier;
 
 public class NullDereferenceCheckTest {
+
+  @Test
+  public void xxx() throws IOException {
+    List<File> cp = mvnClassPath("C:\\projects\\test\\project\\pom.xml");
+    String filename = "C:\\projects\\test\\project\\src\\main\\java\\GetReportAlertasVelocidadZona.java";
+    JavaCheckVerifier.verify(filename, new NullDereferenceCheck(), cp);
+  }
+
+  private List<File> mvnClassPath(String pomFilename) throws IOException {
+    Path tempFile = null;
+    try {
+      tempFile = Files.createTempFile("mvnclasspath", ".txt");
+      Runtime.getRuntime().exec(new String[]{"mvn", "dependency:build-classpath", "-Dmdep.outputFile=" + tempFile.toString(), "-f", pomFilename});
+      String cpString = new String(Files.readAllBytes(tempFile));
+      return Arrays.stream(cpString.split(";")).map(File::new).collect(Collectors.toList());
+    } finally {
+      if (tempFile != null) {
+        Files.deleteIfExists(tempFile);
+      }
+    }
+  }
+
 
   @Test
   public void test() {

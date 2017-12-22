@@ -20,8 +20,10 @@
 package org.sonar.java.se;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.sonar.api.utils.log.Logger;
 import org.sonar.api.utils.log.Loggers;
 import org.sonar.java.ast.visitors.SubscriptionVisitor;
@@ -65,6 +67,7 @@ public class SymbolicExecutionVisitor extends SubscriptionVisitor {
   }
 
   public void execute(MethodTree methodTree) {
+    Stopwatch stopwatch = Stopwatch.createStarted();
     ExplodedGraphWalker walker = getWalker();
     try {
       Symbol.MethodSymbol methodSymbol = methodTree.symbol();
@@ -84,6 +87,8 @@ public class SymbolicExecutionVisitor extends SubscriptionVisitor {
         walker.methodBehavior.visited();
       }
     }
+    stopwatch.stop();
+    System.out.println(methodTree.symbol().name() + " " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + "ms");
   }
 
   @VisibleForTesting
