@@ -87,7 +87,7 @@ public class UCFGJavaVisitor extends BaseTreeVisitor implements JavaFileScanner 
     this.protobufDirectory = new File(new File(workdir, "ucfg"), "java");
     if (protobufDirectory.exists()) {
       // set index to the number of files, to avoid overwriting previous files
-      index = protobufDirectory.list().length;
+      // index = protobufDirectory.list().length;
     } else {
       protobufDirectory.mkdirs();
     }
@@ -129,7 +129,7 @@ public class UCFGJavaVisitor extends BaseTreeVisitor implements JavaFileScanner 
   }
 
   private String ucfgFilePath() {
-    String absolutePath = new File(protobufDirectory, "ucfg_" + index + ".proto").getAbsolutePath();
+    String absolutePath = new File(protobufDirectory, "ucfg_" + javaFileKey + "_" + index + ".proto").getAbsolutePath();
     index++;
     return absolutePath;
   }
